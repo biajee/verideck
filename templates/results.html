@@ -15,21 +15,50 @@
     .tie { background: #d9f2dd; color: #1b6e2a; }
     .rounded { background: #fdf3d7; color: #8a6d1a; }
     .mismatch { background: #fde0e0; color: #a02020; }
-    .occ { display: inline-block; margin: .25rem .6rem .25rem 0; text-align: center; }
+    .occ { display: inline-block; margin: .25rem .6rem .25rem 0; text-align: center; cursor: zoom-in; }
     .occ img { display: block; border: 1px solid #bbc; border-radius: 4px; max-height: 70px; width: auto; margin-bottom: .2rem; background: #fff; }
+    .occ:hover img { border-color: #2a4d8f; box-shadow: 0 0 0 2px rgba(42,77,143,.25); }
     .loc { font-size: .75rem; color: #556; font-family: ui-monospace, monospace; }
     .key { font-family: ui-monospace, monospace; font-weight: 600; white-space: nowrap; }
     .raw { color: #889; font-size: .8rem; }
     a { color: #2a4d8f; }
+
+    /* Hover preview: full page with the number highlighted. */
+    #preview { position: fixed; inset: 0; z-index: 50; display: none;
+               align-items: center; justify-content: center;
+               background: rgba(20,20,35,.55); pointer-events: none; }
+    #preview.show { display: flex; }
+    .preview-inner { position: relative; display: inline-block; background: #fff;
+                     border: 1px solid #889; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
+    #preview-img { display: block; max-width: 80vw; max-height: 84vh; width: auto; height: auto; }
+    #preview-hl { position: absolute; border: 2px solid #e11525;
+                  background: rgba(255,225,0,.22); box-shadow: 0 0 0 3px rgba(225,21,37,.3);
+                  border-radius: 2px; }
+    #preview-cap { position: absolute; bottom: 2vh; left: 50%; transform: translateX(-50%);
+                   background: rgba(0,0,0,.75); color: #fff; padding: .3rem .8rem;
+                   border-radius: 6px; font-family: ui-monospace, monospace; font-size: .85rem; }
   </style>
 </head>
 <body>
+
+{% macro occ_thumb(o) %}
+  <span class="occ"
+        data-page="{{ url_for('page_image', job_id=job_id, name=o.page_image) }}"
+        data-hx="{{ o.highlight[0] }}" data-hy="{{ o.highlight[1] }}"
+        data-hw="{{ o.highlight[2] }}" data-hh="{{ o.highlight[3] }}"
+        data-loc="{{ o.locator }}">
+    <img src="{{ url_for('crop', job_id=job_id, name=o.crop) }}" alt="{{ o.raw }}" title="{{ o.line_text }}">
+    <span class="loc">{{ o.locator }}</span>
+  </span>
+{% endmacro %}
+
   <h1>Verification results <span class="raw">job {{ job_id }}</span></h1>
   <p class="summary">
     {% for f in results.files %}<strong>{{ f.name }}</strong> ({{ f.numbers_found }} numbers){{ ", " if not loop.last }}{% endfor %}
     — {{ results.total_numbers }} numbers extracted, {{ ties|length }} tie groups,
     {{ mismatches|length }} potential mismatches. <a href="{{ url_for('index') }}">New job</a>
   </p>
+  <p class="raw">Hover a number's screenshot to see the full page with that number highlighted.</p>
 
   <h2>Numbers appearing in multiple places</h2>
   {% if ties %}
@@ -43,14 +72,7 @@
         {% else %}<span class="badge mismatch">REVIEW ⚠</span>{% endif %}
       </td>
       <td class="key">{{ g.key }}</td>
-      <td>
-        {% for o in g.occurrences %}
-        <span class="occ">
-          <img src="{{ url_for('crop', job_id=job_id, name=o.crop) }}" alt="{{ o.raw }}" title="{{ o.line_text }}">
-          <span class="loc">{{ o.locator }}</span>
-        </span>
-        {% endfor %}
-      </td>
+      <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
     </tr>
     {% endfor %}
   </table>
@@ -64,17 +86,49 @@
     <tr>
       <td><span class="badge mismatch">REVIEW ⚠</span></td>
       <td>{{ g.key }}</td>
-      <td>
-        {% for o in g.occurrences %}
-        <span class="occ">
-          <img src="{{ url_for('crop', job_id=job_id, name=o.crop) }}" alt="{{ o.raw }}" title="{{ o.line_text }}">
-          <span class="loc">{{ o.locator }}</span>
-        </span>
-        {% endfor %}
-      </td>
+      <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
     </tr>
     {% endfor %}
   </table>
   {% else %}<p>None found.</p>{% endif %}
+
+  <div id="preview" aria-hidden="true">
+    <div class="preview-inner">
+      <img id="preview-img" alt="">
+      <div id="preview-hl"></div>
+    </div>
+    <div id="preview-cap"></div>
+  </div>
+
+  <script>
+  (function () {
+    var preview = document.getElementById('preview');
+    var img = document.getElementById('preview-img');
+    var hl = document.getElementById('preview-hl');
+    var cap = document.getElementById('preview-cap');
+
+    function pct(v) { return (parseFloat(v) * 100) + '%'; }
+
+    function show(el) {
+      if (!el.dataset.page) return;
+      img.src = el.dataset.page;
+      hl.style.left = pct(el.dataset.hx);
+      hl.style.top = pct(el.dataset.hy);
+      hl.style.width = pct(el.dataset.hw);
+      hl.style.height = pct(el.dataset.hh);
+      cap.textContent = el.dataset.loc || '';
+      preview.classList.add('show');
+    }
+    function hide() {
+      preview.classList.remove('show');
+      img.removeAttribute('src');
+    }
+
+    document.querySelectorAll('.occ').forEach(function (el) {
+      el.addEventListener('mouseenter', function () { show(el); });
+      el.addEventListener('mouseleave', hide);
+    });
+  })();
+  </script>
 </body>
 </html>

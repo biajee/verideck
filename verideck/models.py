@@ -18,6 +18,10 @@ class Occurrence:
     value: Decimal  # canonical numeric value, e.g. -2500
     line_text: str  # full text of the line containing the token
     crop: str = ""  # crop image filename, set by screenshot step
+    page_image: str = ""  # full-page render filename, set by screenshot step
+    # number's location as fractions of the page (x, y, w, h), for the hover
+    # highlight overlay; resolution-independent so it scales with the image.
+    highlight: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
 
     @property
     def locator(self) -> str:
@@ -33,6 +37,8 @@ class Occurrence:
             "value": str(self.value),
             "line_text": self.line_text,
             "crop": self.crop,
+            "page_image": self.page_image,
+            "highlight": list(self.highlight),
             "locator": self.locator,
         }
 

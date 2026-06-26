@@ -57,5 +57,10 @@ def test_run_job_end_to_end(tmp_path):
         for occurrence in group["occurrences"]:
             crop = job_dir / "crops" / occurrence["crop"]
             assert crop.exists() and crop.stat().st_size > 0
+            # full-page render + highlight box back the hover preview
+            page = job_dir / "pages" / occurrence["page_image"]
+            assert page.exists() and page.stat().st_size > 0
+            x, y, w, h = occurrence["highlight"]
+            assert 0 <= x < 1 and 0 <= y < 1 and 0 < w <= 1 and 0 < h <= 1
 
     assert load_results(job_dir) == results

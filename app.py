@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, abort, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 
-from verideck.pipeline import CROPS, UPLOADS, load_results, run_job
+from verideck.pipeline import CROPS, PAGES, UPLOADS, load_results, run_job
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -56,6 +56,11 @@ def show_job(job_id):
 @app.get("/jobs/<job_id>/crops/<path:name>")
 def crop(job_id, name):
     return send_from_directory(DATA_DIR / job_id / CROPS, name)
+
+
+@app.get("/jobs/<job_id>/pages/<path:name>")
+def page_image(job_id, name):
+    return send_from_directory(DATA_DIR / job_id / PAGES, name)
 
 
 if __name__ == "__main__":

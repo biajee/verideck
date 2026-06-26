@@ -7,13 +7,14 @@ from pathlib import Path
 from .convert import ensure_pdf
 from .extract import extract_occurrences
 from .match import find_label_mismatches, group_ties
-from .screenshot import render_crops
+from .screenshot import render_crops, render_pages
 
 log = logging.getLogger(__name__)
 
 UPLOADS = "uploads"
 PDFS = "pdf"
 CROPS = "crops"
+PAGES = "pages"
 RESULTS = "results.json"
 
 
@@ -26,6 +27,7 @@ def run_job(job_dir: Path) -> dict:
         pdf = ensure_pdf(src, job_dir / PDFS)
         occurrences = extract_occurrences(pdf, src.name)
         render_crops(pdf, occurrences, job_dir / CROPS, prefix=f"f{idx}")
+        render_pages(pdf, occurrences, job_dir / PAGES, prefix=f"f{idx}")
         all_occurrences.extend(occurrences)
         files.append({"name": src.name, "numbers_found": len(occurrences)})
 
