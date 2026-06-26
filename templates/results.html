@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Verideck — results</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; color: #1a1a2e; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.15rem; margin-top: 2.2rem; }
+    .summary { color: #445; }
+    table { border-collapse: collapse; width: 100%; margin-top: .8rem; }
+    th, td { border: 1px solid #ccd; padding: .55rem .7rem; text-align: left; vertical-align: top; }
+    th { background: #eef1f7; }
+    .badge { display: inline-block; border-radius: 5px; padding: .15rem .55rem; font-weight: 600; white-space: nowrap; }
+    .tie { background: #d9f2dd; color: #1b6e2a; }
+    .rounded { background: #fdf3d7; color: #8a6d1a; }
+    .mismatch { background: #fde0e0; color: #a02020; }
+    .occ { display: inline-block; margin: .25rem .6rem .25rem 0; text-align: center; }
+    .occ img { display: block; border: 1px solid #bbc; border-radius: 4px; max-height: 70px; width: auto; margin-bottom: .2rem; background: #fff; }
+    .loc { font-size: .75rem; color: #556; font-family: ui-monospace, monospace; }
+    .key { font-family: ui-monospace, monospace; font-weight: 600; white-space: nowrap; }
+    .raw { color: #889; font-size: .8rem; }
+    a { color: #2a4d8f; }
+  </style>
+</head>
+<body>
+  <h1>Verification results <span class="raw">job {{ job_id }}</span></h1>
+  <p class="summary">
+    {% for f in results.files %}<strong>{{ f.name }}</strong> ({{ f.numbers_found }} numbers){{ ", " if not loop.last }}{% endfor %}
+    — {{ results.total_numbers }} numbers extracted, {{ ties|length }} tie groups,
+    {{ mismatches|length }} potential mismatches. <a href="{{ url_for('index') }}">New job</a>
+  </p>
+
+  <h2>Numbers appearing in multiple places</h2>
+  {% if ties %}
+  <table>
+    <tr><th>Status</th><th>Value</th><th>Occurrences</th></tr>
+    {% for g in ties %}
+    <tr>
+      <td>
+        {% if g.rounded %}<span class="badge rounded">TIE ≈ rounding</span>
+        {% elif g.tied %}<span class="badge tie">TIE ✓</span>
+        {% else %}<span class="badge mismatch">REVIEW ⚠</span>{% endif %}
+      </td>
+      <td class="key">{{ g.key }}</td>
+      <td>
+        {% for o in g.occurrences %}
+        <span class="occ">
+          <img src="{{ url_for('crop', job_id=job_id, name=o.crop) }}" alt="{{ o.raw }}" title="{{ o.line_text }}">
+          <span class="loc">{{ o.locator }}</span>
+        </span>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p>No value appears in more than one place.</p>{% endif %}
+
+  <h2>Potential mismatches — same label, different values across files</h2>
+  {% if mismatches %}
+  <table>
+    <tr><th>Status</th><th>Label</th><th>Occurrences</th></tr>
+    {% for g in mismatches %}
+    <tr>
+      <td><span class="badge mismatch">REVIEW ⚠</span></td>
+      <td>{{ g.key }}</td>
+      <td>
+        {% for o in g.occurrences %}
+        <span class="occ">
+          <img src="{{ url_for('crop', job_id=job_id, name=o.crop) }}" alt="{{ o.raw }}" title="{{ o.line_text }}">
+          <span class="loc">{{ o.locator }}</span>
+        </span>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p>None found.</p>{% endif %}
+</body>
+</html>

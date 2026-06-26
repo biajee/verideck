@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Verideck — verify your deck numbers</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; color: #1a1a2e; }
+    h1 { font-size: 1.6rem; }
+    form { border: 2px dashed #aab; border-radius: 8px; padding: 2rem; margin-top: 1.5rem; }
+    input[type=file] { display: block; margin-bottom: 1.5rem; }
+    button { background: #2a4d8f; color: #fff; border: 0; border-radius: 6px; padding: .6rem 1.4rem; font-size: 1rem; cursor: pointer; }
+    .error { background: #fdd; border: 1px solid #c66; border-radius: 6px; padding: .7rem 1rem; }
+    .hint { color: #667; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>Verideck</h1>
+  <p>Upload the documents of one reporting package — PowerPoint, PDF, Excel.
+     Verideck finds every financial number, shows where each one appears, and
+     checks that the values tie across documents.</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form action="{{ url_for('create_job') }}" method="post" enctype="multipart/form-data">
+    <input type="file" name="documents" multiple required
+           accept=".pdf,.pptx,.ppt,.xlsx,.xls,.csv,.docx,.doc,.odp,.ods">
+    <button type="submit">Verify numbers</button>
+  </form>
+  <p class="hint">Files are processed locally. Scanned (image-only) pages are
+     read with OCR when Tesseract language data is installed
+     (<code>eng.traineddata</code> in <code>~/.local/share/tessdata</code> or
+     via <code>TESSDATA_PREFIX</code>).</p>
+</body>
+</html>

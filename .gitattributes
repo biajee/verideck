@@ -1,0 +1,3 @@
+# Windows installer scripts must keep CRLF endings to run correctly.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
