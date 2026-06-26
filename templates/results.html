@@ -4,10 +4,22 @@
   <meta charset="utf-8">
   <title>Verideck — results</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; color: #1a1a2e; padding: 0 1rem; }
-    h1 { font-size: 1.4rem; }
-    h2 { font-size: 1.15rem; margin-top: 2.2rem; }
-    .summary { color: #445; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: system-ui, sans-serif; color: #1a1a2e;
+           display: flex; overflow: hidden; }
+
+    /* Left: the verification numbers, scrolls independently. */
+    .left-pane { flex: 1 1 56%; min-width: 0; overflow: auto; padding: 1.5rem 1.8rem; }
+    /* Right: big screenshot of the hovered number's page, stays in view. */
+    .right-pane { flex: 1 1 44%; height: 100vh; border-left: 1px solid #ccd;
+                  background: #eef0f6; display: flex; flex-direction: column;
+                  align-items: center; justify-content: center; padding: 1.2rem; }
+
+    h1 { font-size: 1.3rem; margin: 0 0 .4rem; }
+    h2 { font-size: 1.1rem; margin-top: 1.8rem; }
+    .summary { color: #445; margin: 0 0 .3rem; }
+    .hint { color: #889; font-size: .85rem; margin: .2rem 0 0; }
     table { border-collapse: collapse; width: 100%; margin-top: .8rem; }
     th, td { border: 1px solid #ccd; padding: .55rem .7rem; text-align: left; vertical-align: top; }
     th { background: #eef1f7; }
@@ -15,28 +27,35 @@
     .tie { background: #d9f2dd; color: #1b6e2a; }
     .rounded { background: #fdf3d7; color: #8a6d1a; }
     .mismatch { background: #fde0e0; color: #a02020; }
-    .occ { display: inline-block; margin: .25rem .6rem .25rem 0; text-align: center; cursor: zoom-in; }
-    .occ img { display: block; border: 1px solid #bbc; border-radius: 4px; max-height: 70px; width: auto; margin-bottom: .2rem; background: #fff; }
-    .occ:hover img { border-color: #2a4d8f; box-shadow: 0 0 0 2px rgba(42,77,143,.25); }
+    .occ { display: inline-block; margin: .25rem .6rem .25rem 0; text-align: center; cursor: pointer; }
+    .occ img { display: block; border: 1px solid #bbc; border-radius: 4px; max-height: 64px; width: auto; margin-bottom: .2rem; background: #fff; }
+    .occ:hover img { border-color: #2a4d8f; }
+    .occ.active img { border-color: #e11525; box-shadow: 0 0 0 2px rgba(225,21,37,.3); }
     .loc { font-size: .75rem; color: #556; font-family: ui-monospace, monospace; }
     .key { font-family: ui-monospace, monospace; font-weight: 600; white-space: nowrap; }
-    .raw { color: #889; font-size: .8rem; }
+    .raw { color: #889; font-size: .8rem; font-weight: 400; }
     a { color: #2a4d8f; }
 
-    /* Hover preview: full page with the number highlighted. */
-    #preview { position: fixed; inset: 0; z-index: 50; display: none;
-               align-items: center; justify-content: center;
-               background: rgba(20,20,35,.55); pointer-events: none; }
-    #preview.show { display: flex; }
-    .preview-inner { position: relative; display: inline-block; background: #fff;
-                     border: 1px solid #889; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
-    #preview-img { display: block; max-width: 80vw; max-height: 84vh; width: auto; height: auto; }
+    /* Right-pane preview. The wrap shrink-fits the image so the highlight,
+       positioned in %, lines up at any rendered size. */
+    #preview-wrap { position: relative; display: none; max-width: 100%;
+                    background: #fff; box-shadow: 0 4px 22px rgba(0,0,0,.2); }
+    #preview-img { display: block; max-width: 100%; max-height: 84vh; width: auto; height: auto; }
     #preview-hl { position: absolute; border: 2px solid #e11525;
                   background: rgba(255,225,0,.22); box-shadow: 0 0 0 3px rgba(225,21,37,.3);
                   border-radius: 2px; }
-    #preview-cap { position: absolute; bottom: 2vh; left: 50%; transform: translateX(-50%);
-                   background: rgba(0,0,0,.75); color: #fff; padding: .3rem .8rem;
-                   border-radius: 6px; font-family: ui-monospace, monospace; font-size: .85rem; }
+    #preview-cap { display: none; margin-top: .7rem; padding: .3rem .8rem;
+                   background: rgba(0,0,0,.72); color: #fff; border-radius: 6px;
+                   font-family: ui-monospace, monospace; font-size: .82rem; }
+    #preview-empty { color: #778; font-size: .95rem; }
+
+    @media (max-width: 900px) {
+      body { flex-direction: column; overflow: auto; height: auto; }
+      .left-pane, .right-pane { flex: none; width: 100%; max-width: none; }
+      .right-pane { height: auto; border-left: 0; border-top: 1px solid #ccd;
+                    position: sticky; top: 0; max-height: 60vh; }
+      #preview-img { max-height: 52vh; }
+    }
   </style>
 </head>
 <body>
@@ -52,82 +71,88 @@
   </span>
 {% endmacro %}
 
-  <h1>Verification results <span class="raw">job {{ job_id }}</span></h1>
-  <p class="summary">
-    {% for f in results.files %}<strong>{{ f.name }}</strong> ({{ f.numbers_found }} numbers){{ ", " if not loop.last }}{% endfor %}
-    — {{ results.total_numbers }} numbers extracted, {{ ties|length }} tie groups,
-    {{ mismatches|length }} potential mismatches. <a href="{{ url_for('index') }}">New job</a>
-  </p>
-  <p class="raw">Hover a number's screenshot to see the full page with that number highlighted.</p>
+  <div class="left-pane">
+    <h1>Verification results <span class="raw">job {{ job_id }}</span></h1>
+    <p class="summary">
+      {% for f in results.files %}<strong>{{ f.name }}</strong> ({{ f.numbers_found }} numbers){{ ", " if not loop.last }}{% endfor %}
+      — {{ results.total_numbers }} numbers extracted, {{ ties|length }} tie groups,
+      {{ mismatches|length }} potential mismatches. <a href="{{ url_for('index') }}">New job</a>
+    </p>
+    <p class="hint">Hover a number to see it highlighted on its page, on the right.</p>
 
-  <h2>Numbers appearing in multiple places</h2>
-  {% if ties %}
-  <table>
-    <tr><th>Status</th><th>Value</th><th>Occurrences</th></tr>
-    {% for g in ties %}
-    <tr>
-      <td>
-        {% if g.rounded %}<span class="badge rounded">TIE ≈ rounding</span>
-        {% elif g.tied %}<span class="badge tie">TIE ✓</span>
-        {% else %}<span class="badge mismatch">REVIEW ⚠</span>{% endif %}
-      </td>
-      <td class="key">{{ g.key }}</td>
-      <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}<p>No value appears in more than one place.</p>{% endif %}
+    <h2>Numbers appearing in multiple places</h2>
+    {% if ties %}
+    <table>
+      <tr><th>Status</th><th>Value</th><th>Occurrences</th></tr>
+      {% for g in ties %}
+      <tr>
+        <td>
+          {% if g.rounded %}<span class="badge rounded">TIE ≈ rounding</span>
+          {% elif g.tied %}<span class="badge tie">TIE ✓</span>
+          {% else %}<span class="badge mismatch">REVIEW ⚠</span>{% endif %}
+        </td>
+        <td class="key">{{ g.key }}</td>
+        <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p>No value appears in more than one place.</p>{% endif %}
 
-  <h2>Potential mismatches — same label, different values across files</h2>
-  {% if mismatches %}
-  <table>
-    <tr><th>Status</th><th>Label</th><th>Occurrences</th></tr>
-    {% for g in mismatches %}
-    <tr>
-      <td><span class="badge mismatch">REVIEW ⚠</span></td>
-      <td>{{ g.key }}</td>
-      <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}<p>None found.</p>{% endif %}
+    <h2>Potential mismatches — same label, different values across files</h2>
+    {% if mismatches %}
+    <table>
+      <tr><th>Status</th><th>Label</th><th>Occurrences</th></tr>
+      {% for g in mismatches %}
+      <tr>
+        <td><span class="badge mismatch">REVIEW ⚠</span></td>
+        <td>{{ g.key }}</td>
+        <td>{% for o in g.occurrences %}{{ occ_thumb(o) }}{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p>None found.</p>{% endif %}
+  </div>
 
-  <div id="preview" aria-hidden="true">
-    <div class="preview-inner">
+  <div class="right-pane">
+    <div id="preview-wrap">
       <img id="preview-img" alt="">
       <div id="preview-hl"></div>
     </div>
     <div id="preview-cap"></div>
+    <div id="preview-empty">Hover a number on the left to see it on its page.</div>
   </div>
 
   <script>
   (function () {
-    var preview = document.getElementById('preview');
     var img = document.getElementById('preview-img');
     var hl = document.getElementById('preview-hl');
     var cap = document.getElementById('preview-cap');
+    var wrap = document.getElementById('preview-wrap');
+    var empty = document.getElementById('preview-empty');
+    var occs = document.querySelectorAll('.occ');
 
     function pct(v) { return (parseFloat(v) * 100) + '%'; }
 
     function show(el) {
       if (!el.dataset.page) return;
+      occs.forEach(function (o) { o.classList.remove('active'); });
+      el.classList.add('active');
       img.src = el.dataset.page;
       hl.style.left = pct(el.dataset.hx);
       hl.style.top = pct(el.dataset.hy);
       hl.style.width = pct(el.dataset.hw);
       hl.style.height = pct(el.dataset.hh);
       cap.textContent = el.dataset.loc || '';
-      preview.classList.add('show');
-    }
-    function hide() {
-      preview.classList.remove('show');
-      img.removeAttribute('src');
+      wrap.style.display = 'inline-block';
+      cap.style.display = 'block';
+      if (empty) empty.style.display = 'none';
     }
 
-    document.querySelectorAll('.occ').forEach(function (el) {
+    occs.forEach(function (el) {
       el.addEventListener('mouseenter', function () { show(el); });
-      el.addEventListener('mouseleave', hide);
+      el.addEventListener('click', function () { show(el); });
     });
+    if (occs.length) show(occs[0]);  // preview the first number by default
   })();
   </script>
 </body>
